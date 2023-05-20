@@ -3,13 +3,20 @@ package main
 import (
 	"context"
 	"log"
+	"time"
+
+	"net/http"
 
 	"github.com/Xacor/log-collector/internal/config"
+	api "github.com/Xacor/log-collector/internal/http"
+	"github.com/Xacor/log-collector/internal/storage"
 	"github.com/Xacor/log-collector/pkg/yandex"
-	"github.com/spf13/viper"
-	"github.com/yandex-cloud/go-genproto/yandex/cloud/logging/v1"
+	"github.com/gorilla/mux"
 	ycsdk "github.com/yandex-cloud/go-sdk"
-	"google.golang.org/protobuf/types/known/timestamppb"
+)
+
+const (
+	flushTimeout = 5
 )
 
 func main() {
@@ -30,26 +37,19 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	request := &logging.WriteRequest{
-		Destination: &logging.Destination{
-			Destination: &logging.Destination_LogGroupId{
-				LogGroupId: viper.GetString("log_group_id"),
-			},
-		},
-		Entries: []*logging.IncomingLogEntry{
-			{
-				Timestamp: timestamppb.Now(),
-				Level:     logging.LogLevel_DEBUG,
-				Message:   "La lal lala",
-			},
-		},
+	api := &api.LogHandler{
+		Store:  storage.NewLogStore(),
+		SDK:    sdk,
+		Ticker: time.NewTicker(time.Second * flushTimeout),
 	}
 
-	p, err := sdk.LogIngestion().LogIngestion().Write(ctx, request)
+	go api.OnTimeout()
 
+	r := mux.NewRouter()
+	r.HandleFunc("/log/", api.Add).Methods("POST")
+	log.Println("start serving :5050")
+	err = http.ListenAndServe(":5050", r) //nolint:gosec//no need of timout here
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Println(p)
 }
