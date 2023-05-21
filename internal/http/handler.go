@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Xacor/log-collector/internal/storage"
+	"github.com/Xacor/log-collector/pkg/yandex"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"github.com/yandex-cloud/go-genproto/yandex/cloud/logging/v1"
@@ -16,12 +17,40 @@ import (
 
 const (
 	storeTreshold = 50
+	ctxTimeout    = 15
+	flushTimeout  = 5
 )
 
 type LogHandler struct {
 	Store  *storage.LogStore
 	SDK    *ycsdk.SDK
 	Ticker *time.Ticker
+}
+
+func New() (*LogHandler, error) {
+	iam, err := yandex.NewIAM()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout*time.Second)
+	defer cancel()
+
+	sdk, err := ycsdk.Build(ctx, ycsdk.Config{
+		Credentials: ycsdk.NewIAMTokenCredentials(iam.Value()),
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to create sdk instance")
+	}
+
+	handler := &LogHandler{
+		Store:  storage.NewLogStore(),
+		SDK:    sdk,
+		Ticker: time.NewTicker(flushTimeout * time.Second),
+	}
+
+	go handler.FlushOnTimeout()
+	return handler, nil
 }
 
 func (api *LogHandler) Add(w http.ResponseWriter, r *http.Request) {
@@ -36,8 +65,8 @@ func (api *LogHandler) Add(w http.ResponseWriter, r *http.Request) {
 	log.Println(in)
 
 	if api.Store.Length() >= storeTreshold {
-		ctx := context.TODO()
-		defer ctx.Done()
+		ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout*time.Second)
+		defer cancel()
 
 		_, err = api.FlushLogs(ctx)
 		if err != nil {
@@ -69,16 +98,16 @@ func (api *LogHandler) FlushLogs(ctx context.Context) (*logging.WriteResponse, e
 	return p, nil
 }
 
-func (api *LogHandler) OnTimeout() {
+func (api *LogHandler) FlushOnTimeout() {
 	for range api.Ticker.C {
 		if api.Store.Length() == 0 {
 			continue
 		}
-		ctx := context.TODO()
+		ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout*time.Second)
 		_, err := api.FlushLogs(ctx)
 		if err != nil {
 			log.Println(err)
 		}
-		ctx.Done()
+		cancel()
 	}
 }

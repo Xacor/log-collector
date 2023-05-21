@@ -22,7 +22,6 @@ const (
 )
 
 type IAM struct {
-	// mu    sync.Mutex
 	token string
 }
 
@@ -33,31 +32,13 @@ func NewIAM() (*IAM, error) {
 	}
 
 	i := &IAM{token: iam}
-	// go i.pollIAMToken()
 
 	return i, nil
 }
 
 func (i *IAM) Value() string {
-	// i.mu.Lock()
-	// defer i.mu.Unlock()
-
 	return i.token
 }
-
-// func (i *IAM) pollIAMToken() {
-// 	t := time.NewTicker(1 * time.Hour)
-// 	for range t.C {
-// 		iam, err := getIAMToken()
-// 		if err != nil {
-// 			// do something
-// 			continue
-// 		}
-// 		i.mu.Lock()
-// 		i.token = iam
-// 		i.mu.Unlock()
-// 	}
-// }
 
 func loadPrivateKey() (*rsa.PrivateKey, error) {
 	file, err := os.Open(viper.GetString(keyFile))
