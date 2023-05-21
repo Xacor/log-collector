@@ -20,7 +20,7 @@ func main() {
 
 	api, err := api.New(&api.HandlerConfig{
 		LogGroupID: viper.GetString("log_group_id"),
-		IAMconf: yandex.Config{
+		IAMconf: &yandex.Config{
 			ServiceAccountID: viper.GetString("service_account_id"),
 			KeyFile:          viper.GetString("key_file"),
 			KeyID:            viper.GetString("key_id"),
