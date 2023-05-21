@@ -29,11 +29,11 @@ type LogHandler struct {
 
 type HandlerConfig struct {
 	LogGroupID string
-	IAMconf    yandex.Config
+	IAMconf    *yandex.Config
 }
 
 func New(conf *HandlerConfig) (*LogHandler, error) {
-	iam, err := yandex.NewIAM(&yandex.Config{})
+	iam, err := yandex.NewIAM(conf.IAMconf)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -49,9 +49,10 @@ func New(conf *HandlerConfig) (*LogHandler, error) {
 	}
 
 	handler := &LogHandler{
-		Store:  storage.NewLogStore(),
-		SDK:    sdk,
-		Ticker: time.NewTicker(flushTimeout),
+		Store:      storage.NewLogStore(),
+		SDK:        sdk,
+		Ticker:     time.NewTicker(flushTimeout),
+		logGroupID: conf.LogGroupID,
 	}
 
 	go handler.FlushOnTimeout()

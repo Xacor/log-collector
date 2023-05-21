@@ -68,7 +68,6 @@ func signedToken(conf *Config) (string, error) {
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodPS256, claims)
 	token.Header["kid"] = conf.KeyID
-
 	privateKey, err := loadPrivateKey(conf.KeyFile)
 	if err != nil {
 		return "", errors.WithStack(err)
@@ -83,7 +82,7 @@ func signedToken(conf *Config) (string, error) {
 func getIAMToken(conf *Config) (string, error) {
 	jwt, err := signedToken(conf)
 	if err != nil {
-		return "", errors.Wrap(err, "unable to sign token: %w")
+		return "", errors.Wrap(err, "unable to sign token")
 	}
 	resp, err := http.Post(
 		"https://iam.api.cloud.yandex.net/iam/v1/tokens",

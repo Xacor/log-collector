@@ -52,14 +52,23 @@ func (ls *LogStore) AddLog(in LogJSON) (LogJSON, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "unamble to parse timestamp")
 	}
+	message, ok := in["msg"].(string)
+	if !ok {
+		message = ""
+	}
+
+	streamName, ok := in["stream_name"].(string)
+	if !ok {
+		streamName = ""
+	}
 
 	// construct proto here
 	newLogEntry := &logging.IncomingLogEntry{
 		Timestamp:   timestamppb.New(timestamp),
-		Message:     in["msg"].(string),
+		Message:     message,
 		Level:       level,
 		JsonPayload: jsonPayload,
-		StreamName:  in["stream_name"].(string),
+		StreamName:  streamName,
 	}
 	ls.logs = append(ls.logs, newLogEntry)
 
