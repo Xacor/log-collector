@@ -12,21 +12,20 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/pkg/errors"
-	"github.com/spf13/viper"
-)
-
-const (
-	keyID            = "key_id"
-	serviceAccountID = "service_account_id"
-	keyFile          = "key_file"
 )
 
 type IAM struct {
 	token string
 }
 
-func NewIAM() (*IAM, error) {
-	iam, err := getIAMToken()
+type Config struct {
+	ServiceAccountID string
+	KeyFile          string
+	KeyID            string
+}
+
+func NewIAM(config *Config) (*IAM, error) {
+	iam, err := getIAMToken(config)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create iam token")
 	}
@@ -40,8 +39,8 @@ func (i *IAM) Value() string {
 	return i.token
 }
 
-func loadPrivateKey() (*rsa.PrivateKey, error) {
-	file, err := os.Open(viper.GetString(keyFile))
+func loadPrivateKey(keyFile string) (*rsa.PrivateKey, error) {
+	file, err := os.Open(keyFile)
 	if err != nil {
 		return nil, errors.New(err.Error())
 	}
@@ -59,18 +58,18 @@ func loadPrivateKey() (*rsa.PrivateKey, error) {
 	return rsaPrivateKey, nil
 }
 
-func signedToken() (string, error) {
+func signedToken(conf *Config) (string, error) {
 	claims := jwt.RegisteredClaims{
-		Issuer:    viper.GetString(serviceAccountID),
+		Issuer:    conf.ServiceAccountID,
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
 		IssuedAt:  jwt.NewNumericDate(time.Now()),
 		NotBefore: jwt.NewNumericDate(time.Now()),
 		Audience:  []string{"https://iam.api.cloud.yandex.net/iam/v1/tokens"},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodPS256, claims)
-	token.Header["kid"] = viper.GetString(keyID)
+	token.Header["kid"] = conf.KeyID
 
-	privateKey, err := loadPrivateKey()
+	privateKey, err := loadPrivateKey(conf.KeyFile)
 	if err != nil {
 		return "", errors.WithStack(err)
 	}
@@ -81,8 +80,8 @@ func signedToken() (string, error) {
 	return signed, nil
 }
 
-func getIAMToken() (string, error) {
-	jwt, err := signedToken()
+func getIAMToken(conf *Config) (string, error) {
+	jwt, err := signedToken(conf)
 	if err != nil {
 		return "", errors.Wrap(err, "unable to sign token: %w")
 	}
