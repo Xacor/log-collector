@@ -44,7 +44,7 @@ func (ls *LogStore) AddLog(in LogJSON) (LogJSON, error) {
 	}
 	level := logging.LogLevel_Level(logging.LogLevel_Level_value[strings.ToUpper(in["level"].(string))])
 
-	timeStr, ok := in["time"].(string)
+	timeStr, ok := in["timestamp"].(string)
 	if !ok {
 		return nil, errors.New("unable to assert timestamp")
 	}
@@ -52,7 +52,7 @@ func (ls *LogStore) AddLog(in LogJSON) (LogJSON, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "unamble to parse timestamp")
 	}
-	message, ok := in["msg"].(string)
+	message, ok := in["message"].(string)
 	if !ok {
 		message = ""
 	}
